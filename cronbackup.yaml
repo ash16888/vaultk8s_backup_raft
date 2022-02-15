@@ -1,0 +1,50 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vault-snapshot-cronjob
+spec:
+  schedule: "@every 24h"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: aws-cli-jq
+            image: ash16888/vault-aws-jq:1.9.2
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            args:
+            - -ec
+            - |
+              export VAULT_TOKEN=$(vault write auth/approle/login role_id=$VAULT_APPROLE_ROLE_ID secret_id=$VAULT_APPROLE_SECRET_ID -format=json | jq  -r .auth.client_token);
+              vault operator raft snapshot save /opt/vault-raft.snap;
+              aws --endpoint-url=https://storage.yandexcloud.net/ s3 cp /opt/vault-raft.snap s3://bucketname/vault_raft_$(date +"%Y%m%d_%H%M%S").snap;
+            envFrom:
+            - secretRef:
+                name: vault-snapshot-agent-token
+            env:
+            - name: VAULT_ADDR
+              value: http://vault-active.default.svc.cluster.local:8200
+            - name: AWS_DEFAULT_REGION
+              value: ru-central1
+          restartPolicy: OnFailure
+      parallelism: 1
+      completions: 1
+  concurrencyPolicy: "Forbid"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+ ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-snapshot-agent-token
+type: Opaque
+data:
+  # base64-encoded value
+  VAULT_APPROLE_ROLE_ID:
+  VAULT_APPROLE_SECRET_ID:
+  AWS_ACCESS_KEY_ID:
+  AWS_SECRET_ACCESS_KEY:
+

@@ -1,0 +1,44 @@
+##### ADD THIS FOR HELM CHART VALUES TO  RESTORE BACKUP HASHICORP VAULT WITH KMS AUTO UNSEAL ####################
+
+  extraInitContainers:
+  - name: restore
+    image: ash16888/vault-aws-jq:1.9.2
+    imagePullPolicy: IfNotPresent
+    command:
+    - /bin/sh
+    args:
+    - -ec
+    - |
+      sleep 5;
+      aws --endpoint-url=$AWS_ENDPOINT s3 cp  s3://$AWS_BUCKET_NAME/$ENV_NAME/latestbackup.snap /share/latestbackup.snap;
+      aws --endpoint-url=$AWS_ENDPOINT s3 cp  s3://$AWS_BUCKET_NAME/vaultrestore.sh /share/vaultrestore.sh;
+      chmod +x /share/restore.sh;
+    env:
+      - name: AWS_ACCESS_KEY_ID
+        value: {{ .Values.secrets.vaultbackup.aws.aws_access_key_id }}
+      - name: AWS_SECRET_ACCESS_KEY
+        value: {{ .Values.secrets.vaultbackup.aws.aws_secret_access_key }}
+      - name: AWS_DEFAULT_REGION
+        value: ru-central1
+      - name: AWS_ENDPOINT
+        value: https://storage.yandexcloud.net/
+      - name: AWS_BUCKET_NAME
+        value: {{ .Values.secrets.vaultbackup.aws.aws_bucket_name }}  
+      - name: ENV_NAME
+        value: {{ .Environment.Name }}-env 
+    volumeMounts:
+    - mountPath: /share
+      name: share
+
+  volumes:
+    - name: share
+      emptyDir: {}
+
+  volumeMounts:
+    - mountPath: /share
+      name: share
+
+  postStart:
+    - "/bin/sh"
+    - "-c"
+    - " sleep 5 &&  /share/restore.sh "
