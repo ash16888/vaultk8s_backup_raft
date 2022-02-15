@@ -21,6 +21,7 @@ spec:
               export VAULT_TOKEN=$(vault write auth/approle/login role_id=$VAULT_APPROLE_ROLE_ID secret_id=$VAULT_APPROLE_SECRET_ID -format=json | jq  -r .auth.client_token);
               vault operator raft snapshot save /opt/vault-raft.snap;
               aws --endpoint-url=https://storage.yandexcloud.net/ s3 cp /opt/vault-raft.snap s3://bucketname/vault_raft_$(date +"%Y%m%d_%H%M%S").snap;
+              aws --endpoint-url= https://storage.yandexcloud.net/ cp /opt/vault-raft.snap s3://bucketname/latestbackup.snap;
             envFrom:
             - secretRef:
                 name: vault-snapshot-agent-token
